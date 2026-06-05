@@ -14,10 +14,15 @@ class ProducerService:
         )
         self.logger = get_logger(__name__)
 
-    async def send_message(self, message: dict):
+    async def start(self):
+        self.logger.info("Producer started")
         await self.producer.start()
+
+    async def stop(self):
+        await self.producer.stop()
+        self.logger.info(f"Producer stopped")
+
+    async def send_message(self, message: dict):
         self.logger.info(f"Sending message: {message}")
         await self.producer.send(settings.topic, message)
         self.logger.info(f"Message sent: {message}")
-        await self.producer.stop()
-        self.logger.info(f"Producer stopped")

@@ -1,8 +1,8 @@
-import uuid
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class UserCreated(BaseModel):
 
     name: str
-    id: str = str(uuid.uuid4())
+    id: UUID = Field(default_factory=uuid4)

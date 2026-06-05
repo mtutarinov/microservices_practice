@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from aiokafka.errors import KafkaError
+from aiokafka import AIOKafkaConsumer
 
 from app.settings import settings
 from app.logger import get_logger
@@ -9,7 +9,7 @@ from app.logger import get_logger
 class ConsumerService:
 
     def __init__(self):
-        self.consumer = settings.consumer(
+        self.consumer = AIOKafkaConsumer(
             settings.topic,
             bootstrap_servers=settings.bootstrap_servers,
             group_id=settings.group_id,
@@ -27,10 +27,12 @@ class ConsumerService:
                     self.logger.info(
                         f"Received UserCreated: {message.value['id']} -> {message.value['name']}"
                     )
-            except KafkaError as e:
+            except KeyboardInterrupt:
+                self.logger.info("Received Keyboard interrupt.")
+            except Exception as e:
                 self.logger.error(f"Kafka error: {e}, retry after {self.exp ** 2} seconds.")
                 await asyncio.sleep(self.exp ** 2)
                 self.exp += 1
             finally:
-                self.consumer.stop()
+                await self.consumer.stop()
                 self.logger.info("Consumer finished.")
