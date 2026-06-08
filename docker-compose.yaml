@@ -1,14 +1,16 @@
+version: '3.8'   # можно удалить warning, но оставим
+
 services:
-  broker:
+  kafka:
     image: apache/kafka:latest
+    container_name: kafka
     ports:
       - "9092:9092"
-    container_name: broker
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
@@ -17,3 +19,49 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  service_c_validation:
+    build:
+      context: .
+      dockerfile: service_c_validation/Dockerfile
+    container_name: validation_service
+    ports:
+      - "8001:8001"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  service_a_user:
+    build:
+      context: .
+      dockerfile: service_a_user/Dockerfile
+    container_name: user_service
+    ports:
+      - "8000:8000"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - VALIDATION_SERVICE_URL=http://service_c_validation:8001
+    depends_on:
+      - service_c_validation
+      - kafka
+    restart: on-failure
+
+  service_b_logger:
+    build:
+      context: .
+      dockerfile: service_b_logger/Dockerfile
+    container_name: logger_service
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
